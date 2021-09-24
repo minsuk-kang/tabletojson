@@ -56,7 +56,7 @@ export class Tabletojson {
         let additionalSelectors = options.containsClasses ? `.${options.containsClasses.join('.')}` : '';
         additionalSelectors = options.id ? `${additionalSelectors}#${options.id}` : '';
 
-        $(`table${additionalSelectors}`).each((_i, table) => {
+        $(`table${additionalSelectors}`).each((_i: number, table: cheerio.Element) => {
             const tableAsJson: any[] = [];
             const alreadySeen: any = {};
             // Get column headings
@@ -75,32 +75,37 @@ export class Tabletojson {
                 const cells: cheerio.Cheerio = options.useFirstRowForHeadings
                     ? $(row).find('td, th')
                     : $(row).find('th');
-                cells.each((j: number, cell: cheerio.Element) => {
-                    if (options.onlyColumns && !options.onlyColumns.includes(j)) return;
-                    if (options.ignoreColumns && !options.onlyColumns && options.ignoreColumns.includes(j)) return;
-                    let value: string = '';
+                let j = 0;
+                cells.each((_idx: number, cell: cheerio.Element) => {
+                    const cheerioCell: cheerio.Cheerio = $(cell);
+                    const cheerioCellText: string = cheerioCell.text();
+                    const cheerioCellHtml: string | null = cheerioCell.html();
+                    const cheerioCellColspan: string | undefined = cheerioCell.attr('colspan');
+                    const colspan: number = cheerioCellColspan ? parseInt(cheerioCellColspan, 10) : 1;
+                    for (let k = 0; k < colspan; ++k) {
+                        if (options.onlyColumns && !options.onlyColumns.includes(j)) return;
+                        if (options.ignoreColumns && !options.onlyColumns && options.ignoreColumns.includes(j)) return;
+                        let value: string = '';
 
-                    if (options.headings) {
-                        value = options.headings[headingsCounter++];
-                    } else {
-                        const cheerioCell: cheerio.Cheerio = $(cell);
-                        const cheerioCellText: string = cheerioCell.text();
-                        const cheerioCellHtml: string | null = cheerioCell.html();
+                        if (options.headings) {
+                            value = options.headings[headingsCounter++];
+                        } else {
+                            value = options.stripHtmlFromHeadings
+                                ? cheerioCellText.trim()
+                                : cheerioCellHtml
+                                ? cheerioCellHtml.trim()
+                                : '';
+                        }
 
-                        value = options.stripHtmlFromHeadings
-                            ? cheerioCellText.trim()
-                            : cheerioCellHtml
-                            ? cheerioCellHtml.trim()
-                            : '';
-                    }
-
-                    const seen: any = alreadySeen[value];
-                    if (seen && options.countDuplicateHeadings) {
-                        suffix = ++alreadySeen[value];
-                        columnHeadings[j] = value !== '' ? `${value}_${suffix}` : `${j}`;
-                    } else {
-                        alreadySeen[value] = 1;
-                        columnHeadings[j] = value;
+                        const seen: any = alreadySeen[value];
+                        if (seen && options.countDuplicateHeadings) {
+                            suffix = ++alreadySeen[value];
+                            columnHeadings[j] = value !== '' ? `${value}_${suffix}` : `${j}`;
+                        } else {
+                            alreadySeen[value] = 1;
+                            columnHeadings[j] = value;
+                        }
+                        j = j + 1;
                     }
                 });
             });
